@@ -11,13 +11,21 @@ import json
 
 # P:\Finance\Accounts Payable\User Systems Support\CHECK ISSUING\PaperChecks
 
+
+# FIXED_WIDTH_SOURCE = 'XGE'      # this source is bad. 
+FIXED_WIDTH_SOURCE = 'XJE'      
+# WEEK IS YEAR
+# GL unit header is Operating Unit
+
 P_DRIVE = '//Uskihfil4/Public/Finance/Accounts Payable/User Systems Support/CHECK ISSUING/PaperChecks/'
-SANDBOX_DESTINATION = "//SHSNGSTFSX/shs_boomi_vol/Test/GL_Files/Manual_GL/"
+SANDBOX_DESTINATION = "//SHSNGSTFSX/shs_boomi_vol/Test/GL_Files/300-byte"
 CONFIG_PATH = "./config.json"
+PROD_PATH = '//SHSNGPRFSX/shs_boomi_vol/GL_Files/300-byte'
 
 RE_ISSUE = 'Void & Re-Issue'
 HOME_SERVICES = 'Home Services'
 STEVEN_WARD = 'Steven Ward WEBPOS'
+ONLINE_CHECKS = 'Online Checks AdhocAP'
 
 JOURNAL_REQUIRED_HEADER = 'Journal Required'
 JOURNAL_DONE_HEADER = 'Journal Done?'
@@ -32,6 +40,9 @@ COST_CENTER_HEADER = 'CostCenter'
 PAYEE_NAME = 'Payee Name'
 MEMO = 'Memo'
 CHECK_NUMBER = 'Check Number'
+DOC_NUMBER = 'Doc Number #'
+
+CHECK_PROCESSED_DATE = 'Check Processed Date'
 
 
 CSV_HEADER_OPERATING_UNIT = 'operatingUnit'
@@ -45,31 +56,80 @@ CSV_HEADER_POSTING_YEAR = 'postingYear'
 CSV_HEADER_POSTING_PERIOD = 'postingPeriod'
 CSV_HEADER_REVERSAL_FLAG = 'reversalFlag'
 CSV_HEADER_EMAIL = 'emailAddress'
+CSV_HEADER_DOC_NUMBER = "docNo"
+
+# csv_header_conversions = {GL_UNIT_HEADER: CSV_HEADERS[0],
+#                           GL_DIV_TO_CHARGE_HEADER: CSV_HEADERS[1],
+#                           AMOUNT_HEADER: CSV_HEADERS[2],
+#                           GL_ACCOUNT_HEADER: CSV_HEADERS[3],
+#                           CHECK_NUMBER_AND_MEMO: CSV_HEADERS[4],
+#                           DOC_NUMBER: CSV_HEADER_DOC_NUMBER,
+#                           }
 
 CSV_HEADERS = [CSV_HEADER_OPERATING_UNIT, CSV_HEADER_DIVISION, CSV_HEADER_COST, CSV_HEADER_ACCOUNT,
-               CSV_HEADER_DESCRIPTION, 'docDate', 'docNo', 'refNbr1', 'refNbr2', 'misc1', 'misc2', 'misc3', 'toFrom',
-               CSV_HEADER_TRANSFER_DATE, 'altLegalEntityFlag', 'altLegalEntity', CSV_HEADER_POSTING_YEAR,
-               CSV_HEADER_POSTING_PERIOD, CSV_HEADER_REVERSAL_FLAG, CSV_HEADER_EMAIL]
+               CSV_HEADER_DESCRIPTION, 'docDate', CSV_HEADER_DOC_NUMBER, 'refNbr1', 'refNbr2', 'misc1', 
+               'misc2', 'misc3', 'toFrom', CSV_HEADER_TRANSFER_DATE, 'altLegalEntityFlag',
+               'altLegalEntity', CSV_HEADER_POSTING_YEAR, CSV_HEADER_POSTING_PERIOD, 
+               CSV_HEADER_REVERSAL_FLAG, CSV_HEADER_EMAIL]
 CSV_NULL_VALUE = None
 
 CHECK_NUMBER_AND_MEMO = 'Check number and Memo'
 
-CHECKS_CUT_HEADERS = ['Check Type', JOURNAL_REQUIRED_HEADER, JOURNAL_DONE_HEADER, 'File Date', 'Check Processed Date',
+CHECKS_CUT_HEADERS = ['Check Type', JOURNAL_REQUIRED_HEADER, JOURNAL_DONE_HEADER, "File Date", CHECK_PROCESSED_DATE,
                       CHECK_NUMBER, PAYEE_NAME, MEMO, 'Reference', AMOUNT_HEADER, 'Address', 'Address 2', 'City',
                       'State', 'Zip', 'Country', 'TaxID / SSN', 'Method ID', 'Postage Type', 'Bank Code',
-                      'Overnight Y\\N', GL_ACCOUNT_HEADER, GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, 'Doc Number #']
+                      'Overnight Y\\N', GL_ACCOUNT_HEADER, GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, DOC_NUMBER]
 
 RE_ISSUE_HEADERS = ['Check Type', JOURNAL_REQUIRED_HEADER, JOURNAL_DONE_HEADER, 'Check Received Date',
-                    'Check Processed Date', CHECK_NUMBER, PAYEE_NAME, MEMO, 'Reference', AMOUNT_HEADER, 'Address',
+                    CHECK_PROCESSED_DATE, CHECK_NUMBER, PAYEE_NAME, MEMO, 'Reference', AMOUNT_HEADER, 'Address',
                     'Address 2', 'City', 'State', 'Zip  ', 'Country', 'TaxID / SSN', 'Method ID', 'Postage Type',
                     'Bank Code', 'Overnight Y\\N', GL_ACCOUNT_HEADER, GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER,
                     'Authorization #']
 
 JOURNAL_REQUIRED_STR_13_15 =    'Yes - between PNC bank GL 10318 & JPM bank GL 10617'
 JOURNAL_REQUIRED_STR_16_61_65 = 'Yes - between PNC bank GL 10336 & JPM bank GL 10617'
-JOURNAL_REQUIRED_STR_14 =       'NO Journal Required'
+JOURNAL_REQUIRED_STR_14 =       'No'
 
 
+LEN_OPERATING_UNIT = 5
+LEN_DIVISION = 4
+LEN_ACCOUNT = 5
+LEN_SOURCE = 3
+LEN_CATEGORY = 4
+LEN_YEAR = 4
+LEN_WEEK = 2
+LEN_COST = 17
+LEN_CURRENCY_CODE = 3
+LEN_SELLING_VALUE = 17
+LEN_STATISTICAL_AMOUNT = 17
+LEN_STATISTICAL_CODE = 3
+LEN_REVERSAL_FLAG = 1
+LEN_REVERSAL_YEAR = 4
+LEN_REVERSAL_WEEK = 2
+LEN_BACKTRAFFIC_FLAG = 1
+LEN_SYSTEM_SWITCH = 2
+LEN_DESCRIPTION = 30
+LEN_ENTRY_TYPE = 3
+LEN_RECORD_TYPE = 2
+LEN_REF_NBR_1 = 10
+LEN_DOC_NBR = 15
+LEN_REF_NBR_2 = 10
+LEN_MISC_1 = 20
+LEN_MISC_2 = 20
+LEN_MISC_3 = 20
+LEN_TO_FROM = 6
+LEN_DOC_DATE = 8
+LEN_EXP_CODE = 3
+LEN_EMP_NBR = 7
+LEN_DET_TRAN_DATE = 6
+LEN_ORIG_ENTRY = 15
+LEN_REP_FLG = 1
+LEN_ORU = 6
+LEN_GL_TRXN_DATE = 8
+LEN_FILLER = 16
+# result = 5 + 4 + 5 + 3 + 4 + 4 + 2 + 17 + 3 + 17 + 17 + 3 + 1 + 4 + 2 + 1 + 2 + 30 + 3 + 2 + 10 + 15 + 10 + 20 + 20 + 20 + 6 + 8 + 3 + 7 + 6 + 15 + 1 + 6 + 8 + 16
+# print(result)
+# exit(0)
 class NoSuchFolderException(Exception):
     def __init__(self, *args, **kwargs):
         self.super().__init__(args, kwargs)
@@ -85,13 +145,14 @@ def get_abbreviated_month_and_year():
 
 def get_journals_required_but_not_done(dataframe):
     def journal_required_and_not_done(row):
-        return (row[JOURNAL_REQUIRED_HEADER] == 'Yes') and (row[JOURNAL_DONE_HEADER] == "")
+        return (row[JOURNAL_REQUIRED_HEADER] == 'Yes') and (row[JOURNAL_DONE_HEADER] != 'Yes')
 
     working_on_mask = dataframe.apply(journal_required_and_not_done, axis=1)
     return dataframe[working_on_mask], working_on_mask
 
 
 def save_automated_check_journal_entries(dataframe_dict, month=None, year=None):
+    return # todo, remove this.
     if month is None or year is None:
         month, year = get_abbreviated_month_and_year()
     writer = pd.ExcelWriter(f'outputs/Automated Check Journal Entries {month}{year[-2:]}.xlsx')
@@ -100,8 +161,11 @@ def save_automated_check_journal_entries(dataframe_dict, month=None, year=None):
         dataframe_dict[key].to_excel(writer, sheet_name=key, index=False)
     writer.close()
 
-
 def save_tracker(tracker, name):
+    # if name != ".\AUTOMATED_TEST.xlsx":
+    #     global CONTER
+    #     name = f"My test_{CONTER}.xlsx"
+    #     CONTER += 1
     writer = pd.ExcelWriter(name)
 
     for key in tracker.keys():
@@ -114,8 +178,14 @@ def write_tracker_with_updates(tracker, masks):
     today = date.today()
     for key in masks.keys():
         if key in tracker:
-            tracker[key].loc[masks[key], JOURNAL_DONE_HEADER] = f"AUTOMATED UPLOAD on {today}"
-    save_tracker(tracker, ".\AUTOMATED_TEST.xlsx")
+            tracker[key].fillna('', inplace=True)
+            tracker[key][JOURNAL_DONE_HEADER] = tracker[key][JOURNAL_DONE_HEADER].astype(str)
+            if NEEDS_INVESTIGATION not in key:
+                tracker[key].loc[masks[key], JOURNAL_DONE_HEADER] = f"AUTOMATED UPLOAD on {today}"
+    # TODO remove this. 
+    print(f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(automation_testing_thomas).xlsx")
+    print("##############################################")
+    save_tracker(tracker, f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(automation_testing_thomas).xlsx")
 
 
 def find_bad_gl_accounts(df, valid_gl_accounts):
@@ -145,7 +215,7 @@ def get_dataframes_from_journal(save=True):
     masks = {}
 
     for key in dfs.keys():
-        if key not in [STEVEN_WARD, HOFFMAN, HOME_SERVICES]:
+        if key not in [STEVEN_WARD, HOFFMAN, HOME_SERVICES, ONLINE_CHECKS]:
             continue
         
         dfs[key][JOURNAL_DONE_HEADER] = dfs[key][JOURNAL_DONE_HEADER].fillna('')
@@ -189,21 +259,19 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     # End of step 4
     # Step 6
 
-    re_issue[CHECK_NUMBER] = re_issue[CHECK_NUMBER].astype(str)
+    re_issue[CHECK_NUMBER] = re_issue[CHECK_NUMBER].astype('Int64').astype(str)
     re_issue[MEMO] = re_issue[MEMO].astype(str)
 
     def update_journal_required_value(row):
         if row[MEMO][:2] == "14":
             return JOURNAL_REQUIRED_STR_14
         if row[CHECK_NUMBER][:2] == row[MEMO][:2]:
-            return row[JOURNAL_REQUIRED_HEADER]
+            return "Yes"
         replace_str = "Yes"
         if row[MEMO][:2] == "13" or row[MEMO][:2] == "15":
             replace_str = JOURNAL_REQUIRED_STR_13_15
         elif row[MEMO][:2] == "16" or row[MEMO][:2] == "61" or row[MEMO][:2] == "65":
             replace_str = JOURNAL_REQUIRED_STR_16_61_65
-        elif row[MEMO][:2] == "14":
-            replace_str = JOURNAL_REQUIRED_STR_14
 
         return replace_str
 
@@ -214,7 +282,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         if "issue" in key.lower():
             dfs[key] = re_issue
             break
-    save_tracker(dfs, name=file_name)
+    # save_tracker(dfs, name=file_name)
     # Time to get the files that do need a journal update. We'll gather them here, and use them later.
     def journal_required_mask(row):
         if not row[JOURNAL_DONE_HEADER] == math.nan:
@@ -242,9 +310,9 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     for key in filtered.keys():
         exists_mask, not_exists_mask = find_bad_gl_accounts(filtered[key], accounts)
         if filtered[key][not_exists_mask].size != 0:
-            dfs[f"{NEEDS_INVESTIGATION} {key}"] = filtered[key][not_exists_mask]
+            dfs[f"{NEEDS_INVESTIGATION} {key}"[:30]] = filtered[key][not_exists_mask]
             filtered[key] = filtered[key][exists_mask]
-            save_tracker(dfs, file_name)
+            # save_tracker(dfs, file_name)
     # Step 18 Done
     # Step 19
     cost_centers = netsuite_info["Cost Center"]
@@ -311,12 +379,15 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     #                                                                GL Div     (column y)   IN   "Sub Accts"
     #                                                                Amount     (column k)   IN   "Cost"
     #                                                                GL account (column w)   IN   "Acct"
-    #                                                                payee name (column a)   IN   "Description"
-    columns_to_keep = [GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, AMOUNT_HEADER, GL_ACCOUNT_HEADER, CHECK_NUMBER_AND_MEMO]
+    #                                                                payee name (column a)   IN   "Description
+    #                                                                Doc Number (column ?)"  IN   "DocNo"       .. maybe, unsure about this one. 
+    #                                                                the date                     in the date
+    columns_to_keep = [GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, AMOUNT_HEADER, GL_ACCOUNT_HEADER, CHECK_NUMBER_AND_MEMO, DOC_NUMBER, CHECK_PROCESSED_DATE]
 
-    # TODO: This homeservices might need another column of data! For the tracking nbr or whatever!
     export_dataframes = []
     for key in filtered:
+        if DOC_NUMBER not in filtered[key].columns:
+            filtered[key][DOC_NUMBER] = None
         if not filtered[key].empty:
             export_dataframes.append(filtered[key][columns_to_keep])
     if not re_issue_to_add_to_final_csv.empty:
@@ -328,6 +399,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
                               AMOUNT_HEADER: CSV_HEADERS[2],
                               GL_ACCOUNT_HEADER: CSV_HEADERS[3],
                               CHECK_NUMBER_AND_MEMO: CSV_HEADERS[4],
+                              DOC_NUMBER: CSV_HEADER_DOC_NUMBER,
                               }
     data_to_export = data_to_export.rename(columns=csv_header_conversions)
 
@@ -346,6 +418,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     reverse_data[CSV_HEADERS[2]] = reverse_data.apply(make_negative, axis=1)    # copies of cost, but negative (column C)
     reverse_data = reverse_data.assign(**{CSV_HEADERS[3]: "10617"})             # account                      (column D)
     #                                                                           # Do nothing for description   (column E)
+    #                                                                           # Do nothing for doc numbers   (column ?)
 
     data_to_export = pd.concat([data_to_export, reverse_data])
     period = _get_period()
@@ -369,10 +442,17 @@ def process_checks_cut(cost_center_replacements, do_transfer):
 
         data_to_export[header] = value
 
-    print("Exporting final data...")
-    data_to_export.to_csv("outputs/result.csv", index=False)
-    if do_transfer:
-        data_to_export.to_csv(f"{SANDBOX_DESTINATION}/daily_drop-{date.today().day}_{fiscal_month}_{fiscal_year}.csv", index=False, header=False)
+    print("Converting data into fixed width format...")
+    fixed_lines = data_to_export.apply(make_row_fixed_width, axis=1)
+    with open(f'fixed_width_result.txt', 'w+') as file:
+        for line in fixed_lines:
+            file.write(line)
+    with open(f'{SANDBOX_DESTINATION}/fixed_width_result{_get_date_csv_format()}.txt', 'w+') as file:
+        for line in fixed_lines:
+            file.write(line)
+    # data_to_export.to_csv("outputs/result.csv", index=False)
+    # if do_transfer:
+    #     data_to_export.to_csv(f"{SANDBOX_DESTINATION}/daily_drop-{date.today().day}_{fiscal_month}_{fiscal_year}.csv", index=False, header=False)
     print("DONE!")
 
     write_tracker_with_updates(dfs, masks)
@@ -381,6 +461,89 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     # TODO: get some sort of response, hopefully a succesful response!
     #
     # TODO: Update the tracker with what you did!  So that the next day you don't do the same work!
+
+
+def justify(input, amount, fillchar=' '):
+    return str(input)[:amount].rjust(amount, fillchar)
+
+
+def make_row_fixed_width(row):
+    # GL unit header is Operating Unit
+
+    operating_unit = justify(int(float(row[CSV_HEADER_OPERATING_UNIT])), LEN_OPERATING_UNIT, '0')
+    division = justify(row[CSV_HEADER_DIVISION], LEN_DIVISION)
+
+    account = justify(row[CSV_HEADER_ACCOUNT], LEN_ACCOUNT)
+
+    source = justify(FIXED_WIDTH_SOURCE, LEN_SOURCE)
+
+    category = justify(' ', LEN_CATEGORY)
+
+    year = justify(' ', LEN_YEAR)
+
+    week = justify(' ', LEN_WEEK)
+
+    cost = justify(row[CSV_HEADER_COST], LEN_COST)
+
+    currency_code = justify(' ', LEN_CURRENCY_CODE)
+
+    selling_value = justify(' ', LEN_SELLING_VALUE)
+
+    statistical_amount = justify(' ', LEN_STATISTICAL_AMOUNT)
+
+    statistical_code = justify(' ', LEN_STATISTICAL_CODE)
+
+    reversal_flag = justify('N', LEN_REVERSAL_FLAG)
+
+    reversal_year = justify(' ', LEN_REVERSAL_YEAR)
+
+    reversal_week = justify(' ', LEN_REVERSAL_WEEK)
+
+    backtraffic_flag = justify(' ', LEN_BACKTRAFFIC_FLAG)
+
+    system_switch = justify(' ', LEN_SYSTEM_SWITCH)
+
+    description = justify(row[CSV_HEADER_DESCRIPTION], LEN_DESCRIPTION)
+
+    entry_type = justify(' ', LEN_ENTRY_TYPE)
+
+    record_type = justify(' ', LEN_RECORD_TYPE)
+
+    ref_number_1 = justify(' ', LEN_REF_NBR_1)
+
+    doc_nbr = justify(row[CSV_HEADER_DOC_NUMBER], LEN_DOC_NBR)
+
+    ref_number_2 = justify(' ', LEN_REF_NBR_2)
+
+    misc_1 = justify(' ', LEN_MISC_1)
+
+    misc_2 = justify(' ', LEN_MISC_2)
+
+    misc_3 = justify(' ', LEN_MISC_3)
+
+    to_from = justify(' ', LEN_TO_FROM)
+    
+    doc_date = justify(' ', LEN_DOC_DATE)
+
+    exp_code = justify(' ', LEN_EXP_CODE)
+
+    emp_nbr = justify(' ', LEN_EMP_NBR)
+    row_date = datetime.strptime(str(row[CHECK_PROCESSED_DATE]), '%m%d%Y')
+    det_tran_date = justify(_get_det_tran_date(row_date), LEN_DET_TRAN_DATE)
+
+    orig_entry = justify(' ', LEN_ORIG_ENTRY)
+
+    rep_flg = justify(' ', LEN_REP_FLG)
+
+    oru = justify(' ', LEN_ORU)
+
+    gl_trxn_date = justify(_get_gl_trxn_date(row_date), LEN_GL_TRXN_DATE)
+
+    filler = justify(' ', LEN_FILLER)
+
+    result = f"{operating_unit}{division}{account}{source}{category}{year}{week}{cost}{currency_code}{selling_value}{statistical_amount}{statistical_code}{reversal_flag}{reversal_year}{reversal_week}{backtraffic_flag}{system_switch}{description}{entry_type}{record_type}{ref_number_1}{doc_nbr}{ref_number_2}{misc_1}{misc_2}{misc_3}{to_from}{doc_date}{exp_code}{emp_nbr}{det_tran_date}{orig_entry}{rep_flg}{oru}{gl_trxn_date}{filler}\n"
+    assert(len(result) == 301)
+    return result
 
 
 
@@ -397,6 +560,20 @@ def _get_date_csv_format():
     day = str(today.day).zfill(2)
     year = int(today.year)
     return f"{month}{day}{year}"
+
+
+def _get_det_tran_date(the_date):
+    month = str(the_date.month).zfill(2)
+    day = str(the_date.day).zfill(2)
+    year = int(the_date.year)
+    return f"{month}{day}{year}"
+
+
+def _get_gl_trxn_date(the_date):
+    month = str(the_date.month).zfill(2)
+    day = str(the_date.day).zfill(2)
+    year = int(the_date.year)
+    return f"{year}{month}{day}"
 
 
 def _get_year():
@@ -476,7 +653,8 @@ def main():
     raw_dict: Dict[str, int] = config.get("cost_center_replacements", {})  
     cost_center_replacements: Dict[int, int] = {int(k): v for k, v in raw_dict.items()}
      
-    process_checks_cut(cost_center_replacements, True)
+    do_transfer = False         # set to false if testing. 
+    process_checks_cut(cost_center_replacements, do_transfer)
 
 
 if __name__ == "__main__":
