@@ -224,8 +224,6 @@ def get_dataframes_from_journal(save=True):
         filtered[key], masks[key] = get_journals_required_but_not_done(dfs[key])
         filtered[key] = filtered[key].fillna('')
 
-    # TODO: This is a major one. We need to update the tracker. How... will I do this? I assume that I will use these masks...
-
     if save:
         save_automated_check_journal_entries(filtered, fiscal_month, fiscal_year)
     
@@ -293,7 +291,6 @@ def process_checks_cut(cost_center_replacements, do_transfer):
             return False
 
         return True
-    # Todo: When updating the tracker, I think I'll also use this mask. 
     masks[RE_ISSUE] = re_issue.apply(journal_required_mask, axis=1)
     
     re_issue_to_add_to_final_csv = re_issue[masks[RE_ISSUE]]
