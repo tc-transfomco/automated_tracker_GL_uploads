@@ -12,8 +12,7 @@ import json
 # P:\Finance\Accounts Payable\User Systems Support\CHECK ISSUING\PaperChecks
 
 
-# FIXED_WIDTH_SOURCE = 'XGE'      # this source is bad. 
-FIXED_WIDTH_SOURCE = 'XJE'      
+FIXED_WIDTH_SOURCE = 'CHK'      
 # WEEK IS YEAR
 # GL unit header is Operating Unit
 
@@ -145,7 +144,9 @@ def get_abbreviated_month_and_year():
 
 def get_journals_required_but_not_done(dataframe):
     def journal_required_and_not_done(row):
-        return (row[JOURNAL_REQUIRED_HEADER] == 'Yes') and (row[JOURNAL_DONE_HEADER] != 'Yes')
+        journal_required = str(row[JOURNAL_REQUIRED_HEADER]).lower().strip()
+        journal_done = str(row[JOURNAL_DONE_HEADER]).lower().strip()
+        return (journal_required == 'yes') and (journal_done == 'no')
 
     working_on_mask = dataframe.apply(journal_required_and_not_done, axis=1)
     return dataframe[working_on_mask], working_on_mask
@@ -183,9 +184,9 @@ def write_tracker_with_updates(tracker, masks):
             if NEEDS_INVESTIGATION not in key:
                 tracker[key].loc[masks[key], JOURNAL_DONE_HEADER] = f"AUTOMATED UPLOAD on {today}"
     # TODO remove this. 
-    print(f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(automation_testing_thomas).xlsx")
+    print(f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(newest_testing_thomas).xlsx")
     print("##############################################")
-    save_tracker(tracker, f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(automation_testing_thomas).xlsx")
+    save_tracker(tracker, f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(newest_testing_thomas).xlsx")
 
 
 def find_bad_gl_accounts(df, valid_gl_accounts):
@@ -379,7 +380,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     #                                                                payee name (column a)   IN   "Description
     #                                                                Doc Number (column ?)"  IN   "DocNo"       .. maybe, unsure about this one. 
     #                                                                the date                     in the date
-    columns_to_keep = [GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, AMOUNT_HEADER, GL_ACCOUNT_HEADER, CHECK_NUMBER_AND_MEMO, DOC_NUMBER, CHECK_PROCESSED_DATE]
+    columns_to_keep = [GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, AMOUNT_HEADER, GL_ACCOUNT_HEADER, CHECK_NUMBER_AND_MEMO, DOC_NUMBER, CHECK_PROCESSED_DATE, PAYEE_NAME]
 
     export_dataframes = []
     for key in filtered:
@@ -418,26 +419,6 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     #                                                                           # Do nothing for doc numbers   (column ?)
 
     data_to_export = pd.concat([data_to_export, reverse_data])
-    period = _get_period()
-    det_tran_date = _get_date_csv_format()
-    reversed_flag = "N"
-    email = "thomas.cole@transformco.com"
-    posting_year = _get_year()
-    for i in range(5, len(CSV_HEADERS)):
-        header = CSV_HEADERS[i]
-        value = CSV_NULL_VALUE
-        if header == CSV_HEADER_TRANSFER_DATE:
-            value = det_tran_date
-        if header == CSV_HEADER_POSTING_YEAR:
-            value = posting_year
-        if header == CSV_HEADER_POSTING_PERIOD:
-            value = period
-        if header == CSV_HEADER_REVERSAL_FLAG:
-            value = reversed_flag
-        if header == CSV_HEADER_EMAIL:
-            value = email
-
-        data_to_export[header] = value
 
     print("Converting data into fixed width format...")
     fixed_lines = data_to_export.apply(make_row_fixed_width, axis=1)
@@ -466,7 +447,6 @@ def justify(input, amount, fillchar=' '):
 
 def make_row_fixed_width(row):
     # GL unit header is Operating Unit
-
     operating_unit = justify(int(float(row[CSV_HEADER_OPERATING_UNIT])), LEN_OPERATING_UNIT, '0')
     division = justify(row[CSV_HEADER_DIVISION], LEN_DIVISION)
 
@@ -508,13 +488,25 @@ def make_row_fixed_width(row):
 
     ref_number_1 = justify(' ', LEN_REF_NBR_1)
 
+    # TODO If there is a 50905 without a doc number, don't upload it. 
+    # TODO: for adhoc, there is a different header so do something about that. 
     doc_nbr = justify(row[CSV_HEADER_DOC_NUMBER], LEN_DOC_NBR)
+    doc_nbr = str(doc_nbr).replace('-', '').lower().replace("none", "")
+    doc_nbr = justify(doc_nbr, LEN_DOC_NBR)
+    if len(doc_nbr.strip()) == 1:
+        doc_nbr = justify(' ', LEN_DOC_NBR)
+        
+    # NOTE: they should only be on 50905 GL account to charge. This is the account variable right now. 
+    account_copy = account
+    if int(str(account_copy.strip())) != 50905:
+        doc_nbr = justify(' ', LEN_DOC_NBR)
 
     ref_number_2 = justify(' ', LEN_REF_NBR_2)
 
-    misc_1 = justify(' ', LEN_MISC_1)
+    misc_1 = justify(str(row[PAYEE_NAME]).strip().split(' ')[0], LEN_MISC_1)
 
-    misc_2 = justify(' ', LEN_MISC_2)
+    _, _, last_name = str(row[PAYEE_NAME]).strip().partition(' ')
+    misc_2 = justify(last_name, LEN_MISC_2)
 
     misc_3 = justify(' ', LEN_MISC_3)
 
@@ -526,6 +518,8 @@ def make_row_fixed_width(row):
 
     emp_nbr = justify(' ', LEN_EMP_NBR)
     row_date = datetime.strptime(str(row[CHECK_PROCESSED_DATE]), '%m%d%Y')
+
+    # detail transaction date
     det_tran_date = justify(_get_det_tran_date(row_date), LEN_DET_TRAN_DATE)
 
     orig_entry = justify(' ', LEN_ORIG_ENTRY)
@@ -534,7 +528,9 @@ def make_row_fixed_width(row):
 
     oru = justify(' ', LEN_ORU)
 
-    gl_trxn_date = justify(_get_gl_trxn_date(row_date), LEN_GL_TRXN_DATE)
+    # Sandy -> if this informs the posting period, it should be when you upload the file. 
+    # gl transaction date informs the posting period. 
+    gl_trxn_date = justify(_get_gl_trxn_date(date.today()), LEN_GL_TRXN_DATE)
 
     filler = justify(' ', LEN_FILLER)
 
@@ -562,7 +558,7 @@ def _get_date_csv_format():
 def _get_det_tran_date(the_date):
     month = str(the_date.month).zfill(2)
     day = str(the_date.day).zfill(2)
-    year = int(the_date.year)
+    year = str(int(the_date.year))[-2:]
     return f"{month}{day}{year}"
 
 
@@ -623,7 +619,7 @@ def get_checks_cut_path(base_dir):
         if not os.path.isfile(os.path.join(base_dir, dir)):
             continue
         dir_lowered = dir.lower()
-        if "checks" in dir_lowered and "cut" in dir_lowered and ".xlsx" in dir_lowered:
+        if "checks" in dir_lowered and "cut" in dir_lowered and ".xlsx" in dir_lowered and "v2" in dir_lowered:
             return os.path.join(base_dir, dir)
 
 
