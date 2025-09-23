@@ -1,5 +1,7 @@
 import math
 import os
+import shutil
+from pathlib import Path
 from typing import Tuple, Dict
 import warnings
 
@@ -146,7 +148,17 @@ def get_journals_required_but_not_done(dataframe):
     def journal_required_and_not_done(row):
         journal_required = str(row[JOURNAL_REQUIRED_HEADER]).lower().strip()
         journal_done = str(row[JOURNAL_DONE_HEADER]).lower().strip()
-        return (journal_required == 'yes') and (journal_done == 'no')
+        if not ((journal_required == 'yes') and (journal_done == 'no')):
+            return False
+        
+        # from this point on, the journal is required and not done. 
+        if int(str(row[GL_ACCOUNT_HEADER]).strip().lower().replace("none", "0").replace("nan", "0").replace("na", "0")) == 50905:      
+            doc_nbr = row[DOC_NUMBER]
+            doc_nbr = str(doc_nbr).replace('-', '').lower().replace("none", "").replace("nan", "0").replace("na", "0")
+            # If the GL account is 50905 and doesn't have a doc_number, don't process.
+            if len(doc_nbr.strip()) <=4:
+                return False
+        return True
 
     working_on_mask = dataframe.apply(journal_required_and_not_done, axis=1)
     return dataframe[working_on_mask], working_on_mask
@@ -175,18 +187,24 @@ def save_tracker(tracker, name):
     writer.close()
 
 
-def write_tracker_with_updates(tracker, masks):
+def write_tracker_with_updates(tracker, masks, original_file_location):
+    # file_path = Path(original_file_location)
+
+    # location = file_path.parent
+    # filename = file_path.stem       # without extension
+    # extension = file_path.suffix    # includes the dot, e.g., ".xlsx"
     today = date.today()
     for key in masks.keys():
         if key in tracker:
             tracker[key].fillna('', inplace=True)
             tracker[key][JOURNAL_DONE_HEADER] = tracker[key][JOURNAL_DONE_HEADER].astype(str)
             if NEEDS_INVESTIGATION not in key:
-                tracker[key].loc[masks[key], JOURNAL_DONE_HEADER] = f"AUTOMATED UPLOAD on {today}"
-    # TODO remove this. 
-    print(f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(newest_testing_thomas).xlsx")
+                tracker[key].loc[masks[key], JOURNAL_DONE_HEADER] = f"AUTO UPLOAD on {today}"
+    # thomas_file_name = f"{filename}_ThomasTesting{extension}"
+    # update_file = location / thomas_file_name
+    print(original_file_location)
     print("##############################################")
-    save_tracker(tracker, f"{P_DRIVE}AUG 2025 - Period 07/Checks Cut Aug'25(newest_testing_thomas).xlsx")
+    save_tracker(tracker, original_file_location)
 
 
 def find_bad_gl_accounts(df, valid_gl_accounts):
@@ -208,6 +226,11 @@ def get_dataframes_from_journal(save=True):
     except NoSuchFolderException:
         print("Couldn't access the P drive!, or there were no folders for the current fiscal month!")
         file_name = "data/inp_file.xlsx"
+
+    # IMPORTANT!!! MAKE A COPY OF THE FILEEEE BEFORE YOU START MESSING WITH IT
+    directory = Path(file_name).parent
+    shutil.copy(file_name, directory / "Temp_Copy.xlsx")
+
     dfs = pd.read_excel(file_name, sheet_name=None, engine='openpyxl')
     for i, key in enumerate(dfs[HOME_SERVICES].keys()):
         assert(CHECKS_CUT_HEADERS[i] == key.strip())
@@ -390,6 +413,9 @@ def process_checks_cut(cost_center_replacements, do_transfer):
             export_dataframes.append(filtered[key][columns_to_keep])
     if not re_issue_to_add_to_final_csv.empty:
         export_dataframes.append(re_issue_to_add_to_final_csv[columns_to_keep])
+    if not export_dataframes:
+        print("No Data to export for today!")
+        exit(0)
     data_to_export = pd.concat(export_dataframes)
 
     csv_header_conversions = {GL_UNIT_HEADER: CSV_HEADERS[0],
@@ -425,15 +451,13 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     with open(f'fixed_width_result.txt', 'w+') as file:
         for line in fixed_lines:
             file.write(line)
-    with open(f'{SANDBOX_DESTINATION}/fixed_width_result{_get_date_csv_format()}.txt', 'w+') as file:
-        for line in fixed_lines:
-            file.write(line)
     # data_to_export.to_csv("outputs/result.csv", index=False)
     # if do_transfer:
     #     data_to_export.to_csv(f"{SANDBOX_DESTINATION}/daily_drop-{date.today().day}_{fiscal_month}_{fiscal_year}.csv", index=False, header=False)
     print("DONE!")
 
-    write_tracker_with_updates(dfs, masks)
+    do_prod_stuff(dfs, masks, file_name, fixed_lines)
+    # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
     # TODO: put the csv into netsuite!
 
     # TODO: get some sort of response, hopefully a succesful response!
@@ -441,8 +465,16 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     # TODO: Update the tracker with what you did!  So that the next day you don't do the same work!
 
 
+def do_prod_stuff(dataframe, where_to_update, name, output_lines):
+    write_tracker_with_updates(dataframe, where_to_update, name)
+    with open(f'{PROD_PATH}/PG.GFEK100.TEXTIPTF_CHK_{_get_date_file_posting_format()}.txt', 'w+') as file:
+        for line in output_lines:
+            file.write(line)
+
+
 def justify(input, amount, fillchar=' '):
-    return str(input)[:amount].rjust(amount, fillchar)
+    input = str(input).replace("\n", " ").replace("\t", " ")
+    return input[:amount].rjust(amount, fillchar)
 
 
 def make_row_fixed_width(row):
@@ -488,10 +520,9 @@ def make_row_fixed_width(row):
 
     ref_number_1 = justify(' ', LEN_REF_NBR_1)
 
-    # TODO If there is a 50905 without a doc number, don't upload it. 
-    # TODO: for adhoc, there is a different header so do something about that. 
+    # If there is a 50905 without a doc number, don't upload it. 
     doc_nbr = justify(row[CSV_HEADER_DOC_NUMBER], LEN_DOC_NBR)
-    doc_nbr = str(doc_nbr).replace('-', '').lower().replace("none", "")
+    doc_nbr = str(doc_nbr).replace('-', '').lower().replace("none", "").replace('.0', '')
     doc_nbr = justify(doc_nbr, LEN_DOC_NBR)
     if len(doc_nbr.strip()) == 1:
         doc_nbr = justify(' ', LEN_DOC_NBR)
@@ -535,6 +566,7 @@ def make_row_fixed_width(row):
     filler = justify(' ', LEN_FILLER)
 
     result = f"{operating_unit}{division}{account}{source}{category}{year}{week}{cost}{currency_code}{selling_value}{statistical_amount}{statistical_code}{reversal_flag}{reversal_year}{reversal_week}{backtraffic_flag}{system_switch}{description}{entry_type}{record_type}{ref_number_1}{doc_nbr}{ref_number_2}{misc_1}{misc_2}{misc_3}{to_from}{doc_date}{exp_code}{emp_nbr}{det_tran_date}{orig_entry}{rep_flg}{oru}{gl_trxn_date}{filler}\n"
+    # result = f"{operating_unit}|{division}|{account}|{source}|{category}|{year}|{week}|{cost}|{currency_code}|{selling_value}|{statistical_amount}|{statistical_code}|{reversal_flag}|{reversal_year}|{reversal_week}|{backtraffic_flag}|{system_switch}|{description}|{entry_type}|{record_type}|{ref_number_1}|{doc_nbr}|{ref_number_2}|{misc_1}|{misc_2}|{misc_3}|{to_from}|{doc_date}|{exp_code}|{emp_nbr}|{det_tran_date}|{orig_entry}|{rep_flg}|{oru}|{gl_trxn_date}|{filler}\n"
     assert(len(result) == 301)
     return result
 
@@ -553,6 +585,10 @@ def _get_date_csv_format():
     day = str(today.day).zfill(2)
     year = int(today.year)
     return f"{month}{day}{year}"
+
+
+def _get_date_file_posting_format():
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
 def _get_det_tran_date(the_date):
@@ -615,12 +651,26 @@ def check_month_exists_in_p_drive(offset: int) -> Tuple[bool, str, str, str]:
 
 def get_checks_cut_path(base_dir):
     dirs = os.listdir(base_dir)
+    good_files = []
     for dir in dirs:
         if not os.path.isfile(os.path.join(base_dir, dir)):
             continue
         dir_lowered = dir.lower()
-        if "checks" in dir_lowered and "cut" in dir_lowered and ".xlsx" in dir_lowered and "v2" in dir_lowered:
-            return os.path.join(base_dir, dir)
+        # file should follow this naming convention:
+        # TODO
+        # Checks Cut <3 letter month> <YYYY>.xlsx
+        # i.e "Checks Cut SEP 2025.xlsx"
+
+        # TODO: If I can't find one throw an error send an email
+        # TODO: if Checks Cut SEP 2025 - Copy.xlsx exists ---> Throw an error, send an email. 
+        # Right now, I'll just send a teams message until I figure out the email stuff. 
+        # TODO: constrcut email list. 
+
+        if "checks" in dir_lowered and "cut" in dir_lowered and ".xlsx" in dir_lowered:
+            good_files.append(os.path.join(base_dir, dir))
+    if len(good_files) != 1:
+        raise Exception("There must be one and only one Checks Cut MM YYYY.xlsx file!")
+    return good_files[0]
 
 
 def _get_accounts_and_cost_center():
