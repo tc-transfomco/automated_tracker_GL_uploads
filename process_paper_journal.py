@@ -483,7 +483,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
 
     print("Converting data into fixed width format...")
     fixed_lines = data_to_export.apply(make_row_fixed_width, axis=1)
-    with open(f'fixed_width_result.txt', 'w+') as file:
+    with open(f'./PG.GFEK100.TEXTIPTF_CHK_{_get_date_file_posting_format()}.txt', 'w+') as file:
         for line in fixed_lines:
             file.write(line)
     # data_to_export.to_csv("outputs/result.csv", index=False)
@@ -492,7 +492,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     print("DONE!")
 
     do_prod_stuff(dfs, masks, file_name, fixed_lines)
-    send_email()
+    send_email(export_dataframes_dict)
     # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
     # TODO: put the csv into netsuite!
 
