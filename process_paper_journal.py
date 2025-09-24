@@ -8,7 +8,7 @@ import warnings
 import pandas as pd
 from datetime import datetime, date, timedelta
 import json
-
+from mail_util import MailUtil
 
 
 # P:\Finance\Accounts Payable\User Systems Support\CHECK ISSUING\PaperChecks
@@ -142,6 +142,37 @@ def get_abbreviated_month_and_year():
     two_digit_year = current_datetime.strftime('%y')
 
     return short_month_name, two_digit_year
+
+
+def send_email(df_posted:pd.DataFrame):
+    html_table = ""
+    df_string_body = ""
+    for key in df_posted.keys():
+        if not df_posted[key].empty:
+            html_table += f"<h3>{key}</h3>\n{df_posted[key].to_html(index=False, escape=True)}\n"
+            df_string_body += f"***{key}***\n"
+            df_string_body += df_posted[key].to_string()
+    if len(html_table) == 0:
+        html_body = f"""
+            <html>
+                <body>
+                <p>No records were submitted to the GL today.</p>
+                </body>
+            </html>
+        """        
+        df_string_body += "No records were submitted to the GL today."
+    else:
+        html_body = f"""
+            <html>
+                <body>
+                <p>The following items have been submitted to the general ledger:</p>
+                {html_table}
+                <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
+                </body>
+            </html>
+        """
+    MailUtil().send(f"{_get_date_csv_format()} Auto upload", df_string_body, html_body)
+
 
 
 def get_journals_required_but_not_done(dataframe):
@@ -406,15 +437,19 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     columns_to_keep = [GL_UNIT_HEADER, GL_DIV_TO_CHARGE_HEADER, AMOUNT_HEADER, GL_ACCOUNT_HEADER, CHECK_NUMBER_AND_MEMO, DOC_NUMBER, CHECK_PROCESSED_DATE, PAYEE_NAME]
 
     export_dataframes = []
+    export_dataframes_dict = {}
     for key in filtered:
         if DOC_NUMBER not in filtered[key].columns:
             filtered[key][DOC_NUMBER] = None
         if not filtered[key].empty:
             export_dataframes.append(filtered[key][columns_to_keep])
+            export_dataframes_dict[key] = filtered[key][columns_to_keep]
     if not re_issue_to_add_to_final_csv.empty:
         export_dataframes.append(re_issue_to_add_to_final_csv[columns_to_keep])
+        export_dataframes_dict["RE-ISSUE"] = re_issue_to_add_to_final_csv[columns_to_keep]
     if not export_dataframes:
         print("No Data to export for today!")
+        send_email({})
         exit(0)
     data_to_export = pd.concat(export_dataframes)
 
@@ -457,6 +492,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     print("DONE!")
 
     do_prod_stuff(dfs, masks, file_name, fixed_lines)
+    send_email()
     # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
     # TODO: put the csv into netsuite!
 
