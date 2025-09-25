@@ -147,12 +147,14 @@ def get_abbreviated_month_and_year():
 def send_email(df_posted:pd.DataFrame):
     html_table = ""
     df_string_body = ""
+    subject = f"{_get_date_csv_format()} Auto Upload"
     for key in df_posted.keys():
         if not df_posted[key].empty:
             html_table += f"<h3>{key}</h3>\n{df_posted[key].to_html(index=False, escape=True)}\n"
             df_string_body += f"***{key}***\n"
             df_string_body += df_posted[key].to_string()
     if len(html_table) == 0:
+        subject = f"{_get_date_csv_format()} No Files Uploaded"
         html_body = f"""
             <html>
                 <body>
@@ -171,7 +173,7 @@ def send_email(df_posted:pd.DataFrame):
                 </body>
             </html>
         """
-    MailUtil().send(f"{_get_date_csv_format()} Auto upload", df_string_body, html_body)
+    MailUtil().send(subject, df_string_body, html_body)
 
 
 
