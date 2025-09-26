@@ -185,7 +185,7 @@ def get_journals_required_but_not_done(dataframe):
             return False
         
         # from this point on, the journal is required and not done. 
-        if int(str(row[GL_ACCOUNT_HEADER]).strip().lower().replace("none", "0").replace("nan", "0").replace("na", "0")) == 50905:      
+        if int(float(str(row[GL_ACCOUNT_HEADER]).strip().lower().replace("none", "0").replace("nan", "0").replace("na", "0"))) == 50905:      
             doc_nbr = row[DOC_NUMBER]
             doc_nbr = str(doc_nbr).replace('-', '').lower().replace("none", "").replace("nan", "0").replace("na", "0")
             # If the GL account is 50905 and doesn't have a doc_number, don't process.
@@ -520,7 +520,7 @@ def make_row_fixed_width(row):
     operating_unit = justify(int(float(row[CSV_HEADER_OPERATING_UNIT])), LEN_OPERATING_UNIT, '0')
     # operating_unit is the cost center. 
     
-    division = justify(row[CSV_HEADER_DIVISION], LEN_DIVISION)
+    division = justify(int(float(row[CSV_HEADER_DIVISION])), LEN_DIVISION)
 
     account = justify(row[CSV_HEADER_ACCOUNT], LEN_ACCOUNT)
 
