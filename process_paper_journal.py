@@ -518,6 +518,8 @@ def justify(input, amount, fillchar=' '):
 def make_row_fixed_width(row):
     # GL unit header is Operating Unit
     operating_unit = justify(int(float(row[CSV_HEADER_OPERATING_UNIT])), LEN_OPERATING_UNIT, '0')
+    # operating_unit is the cost center. 
+    
     division = justify(row[CSV_HEADER_DIVISION], LEN_DIVISION)
 
     account = justify(row[CSV_HEADER_ACCOUNT], LEN_ACCOUNT)
@@ -569,6 +571,10 @@ def make_row_fixed_width(row):
     account_copy = account
     if int(str(account_copy.strip())) != 50905:
         doc_nbr = justify(' ', LEN_DOC_NBR)
+    else:
+        # From Todd pennington: When the account is 50905 make sure that the cost center is 54590
+        operating_unit = justify(54590, LEN_OPERATING_UNIT, '0')
+
 
     ref_number_2 = justify(' ', LEN_REF_NBR_2)
 
