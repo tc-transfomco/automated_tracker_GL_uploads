@@ -128,9 +128,8 @@ LEN_REP_FLG = 1
 LEN_ORU = 6
 LEN_GL_TRXN_DATE = 8
 LEN_FILLER = 16
-# result = 5 + 4 + 5 + 3 + 4 + 4 + 2 + 17 + 3 + 17 + 17 + 3 + 1 + 4 + 2 + 1 + 2 + 30 + 3 + 2 + 10 + 15 + 10 + 20 + 20 + 20 + 6 + 8 + 3 + 7 + 6 + 15 + 1 + 6 + 8 + 16
-# print(result)
-# exit(0)
+
+
 class NoSuchFolderException(Exception):
     def __init__(self, *args, **kwargs):
         self.super().__init__(args, kwargs)
@@ -198,28 +197,6 @@ def get_journals_required_but_not_done(dataframe):
     return dataframe[working_on_mask], working_on_mask
 
 
-def save_automated_check_journal_entries(dataframe_dict, month=None, year=None):
-    return # todo, remove this.
-    if month is None or year is None:
-        month, year = get_abbreviated_month_and_year()
-    writer = pd.ExcelWriter(f'outputs/Automated Check Journal Entries {month}{year[-2:]}.xlsx')
-
-    for key in dataframe_dict.keys():
-        dataframe_dict[key].to_excel(writer, sheet_name=key, index=False)
-    writer.close()
-
-def save_tracker(tracker, name):
-    # if name != ".\AUTOMATED_TEST.xlsx":
-    #     global CONTER
-    #     name = f"My test_{CONTER}.xlsx"
-    #     CONTER += 1
-    pass
-
-
-def write_tracker_with_updates(tracker, masks, original_file_location):
-    pass
-
-
 def find_bad_gl_accounts(df, valid_gl_accounts):
     def account_exists(row):
         return row[GL_ACCOUNT_HEADER] in valid_gl_accounts[ACCOUNT_NUMBER_HEADER].array
@@ -260,9 +237,6 @@ def get_dataframes_from_journal(save=False):
 
         filtered[key], masks[key] = get_journals_required_but_not_done(dfs[key])
         filtered[key] = filtered[key].fillna('')
-
-    # if save:
-    #     save_automated_check_journal_entries(filtered, fiscal_month, fiscal_year)
     
     re_issue = dfs[RE_ISSUE]
 
@@ -317,7 +291,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         if "issue" in key.lower():
             dfs[key] = re_issue
             break
-    # save_tracker(dfs, name=file_name)
+        
     # Time to get the files that do need a journal update. We'll gather them here, and use them later.
     def journal_required_mask(row):
         if not row[JOURNAL_DONE_HEADER] == math.nan:
@@ -346,45 +320,12 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         if filtered[key][not_exists_mask].size != 0:
             dfs[f"{NEEDS_INVESTIGATION} {key}"[:30]] = filtered[key][not_exists_mask]
             filtered[key] = filtered[key][exists_mask]
-            # save_tracker(dfs, file_name)
+
     # Step 18 Done
     # Step 19
     cost_centers = netsuite_info["Cost Center"]
     filtered = replace_cost_centers(filtered, valid_cost_centers=cost_centers, replacements=cost_center_replacements)
     # Step 19 Done
-
-    # # time for stupidity
-    # # step 20
-
-    # def no_update_gl_units(row):
-    #     correct_value = row[GL_UNIT_HEADER]
-    #     if correct_value not in cost_centers[COST_CENTER_HEADER].array:
-    #         correct_value = pd.NA
-    #     return correct_value
-
-    # if do_steven_ward:
-    #     the_same_garbage_in_column_gl_unit = filtered[STEVEN_WARD].apply(no_update_gl_units, axis=1)
-    #     last_column = filtered[STEVEN_WARD].shape[1]
-    #     filtered[STEVEN_WARD].insert(loc=last_column, column='Z', value=the_same_garbage_in_column_gl_unit)
-
-    # # step 21. This one sucks so much. Why do I just filter in the "original file"?
-    # #          and then just move on? what kind of steps are these?
-
-    # def no_update_gl_account(row):
-    #     correct_value = row[GL_ACCOUNT_HEADER]
-    #     if correct_value not in accounts[ACCOUNT_NUMBER_HEADER].array:
-    #         correct_value = pd.NA
-    #     return correct_value
-
-    # the_same_garbage_in_column_gl_unit = filtered[HOFFMAN].apply(no_update_gl_units, axis=1)
-    # last_column = filtered[HOFFMAN].shape[1]
-    # filtered[HOFFMAN].insert(loc=last_column, column='Z', value=the_same_garbage_in_column_gl_unit)
-
-    # the_same_garbage_in_column_gl_account = filtered[HOFFMAN].apply(no_update_gl_account, axis=1)
-    # last_column = filtered[HOFFMAN].shape[1]
-    # filtered[HOFFMAN].insert(loc=last_column, column='AA', value=the_same_garbage_in_column_gl_account)
-
-    # # enough of the stupidity
 
     # Step 22 and 23
     def construct_check_number_and_name(row):
@@ -468,9 +409,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     with open(f'./PG.GFEK100.TEXTIPTF_CHK_{_get_date_file_posting_format()}.txt', 'w+') as file:
         for line in fixed_lines:
             file.write(line)
-    # data_to_export.to_csv("outputs/result.csv", index=False)
-    # if do_transfer:
-    #     data_to_export.to_csv(f"{SANDBOX_DESTINATION}/daily_drop-{date.today().day}_{fiscal_month}_{fiscal_year}.csv", index=False, header=False)
+
     print("DONE!")
     # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
     # TODO: put the csv into netsuite!
@@ -478,14 +417,6 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     # TODO: get some sort of response, hopefully a succesful response!
     #
     # TODO: Update the tracker with what you did!  So that the next day you don't do the same work!
-
-
-def do_prod_stuff(dataframe, where_to_update, name, output_lines):
-    return
-    write_tracker_with_updates(dataframe, where_to_update, name)
-    with open(f'{PROD_PATH}/PG.GFEK100.TEXTIPTF_CHK_{_get_date_file_posting_format()}.txt', 'w+') as file:
-        for line in output_lines:
-            file.write(line)
 
 
 def justify(input, amount, fillchar=' '):
@@ -593,14 +524,6 @@ def make_row_fixed_width(row):
     return result
 
 
-
-def _get_period():
-    month = int(date.today().month)
-    if month == 1:
-        month = 13
-    return month - 1
-
-
 def _get_date_csv_format():
     today = date.today()
     month = str(today.month).zfill(2)
@@ -625,10 +548,6 @@ def _get_gl_trxn_date(the_date):
     day = str(the_date.day).zfill(2)
     year = int(the_date.year)
     return f"{year}{month}{day}"
-
-
-def _get_year():
-    return int(date.today().year)
 
 
 def _get_latest_excel_spreadsheet():
