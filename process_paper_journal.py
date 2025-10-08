@@ -144,29 +144,33 @@ def get_abbreviated_month_and_year():
     return short_month_name, two_digit_year
 
 
-def send_email(df_posted:pd.DataFrame):
+def send_email(df_posted:pd.DataFrame, file_name: str):
+    path_obj = Path(file_name)
     html_table = ""
     df_string_body = ""
-    subject = f"{_get_date_csv_format()} Auto Upload"
+    subject = f"{_get_email_subject_date()} Auto Upload"
     for key in df_posted.keys():
         if not df_posted[key].empty:
             html_table += f"<h3>{key}</h3>\n{df_posted[key].to_html(index=False, escape=True)}\n"
             df_string_body += f"***{key}***\n"
             df_string_body += df_posted[key].to_string()
     if len(html_table) == 0:
-        subject = f"{_get_date_csv_format()} No Files Uploaded"
+        subject = f"{_get_email_subject_date()} No Files Uploaded"
         html_body = f"""
             <html>
                 <body>
+                <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
                 <p>No records were submitted to the GL today.</p>
                 </body>
             </html>
         """        
+        df_string_body += f"Using '{path_obj.name}' In '{path_obj.parent.name}'"
         df_string_body += "No records were submitted to the GL today."
     else:
         html_body = f"""
             <html>
                 <body>
+                <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
                 <p>The following items have been submitted to the general ledger:</p>
                 {html_table}
                 <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
@@ -451,7 +455,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         export_dataframes_dict["RE-ISSUE"] = re_issue_to_add_to_final_csv[columns_to_keep]
     if not export_dataframes:
         print("No Data to export for today!")
-        send_email({})
+        send_email({}, file_name)
         exit(0)
     data_to_export = pd.concat(export_dataframes)
 
@@ -494,7 +498,7 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     print("DONE!")
 
     do_prod_stuff(dfs, masks, file_name, fixed_lines)
-    send_email(export_dataframes_dict)
+    send_email(export_dataframes_dict, file_name)
     # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
     # TODO: put the csv into netsuite!
 
@@ -623,12 +627,12 @@ def _get_period():
     return month - 1
 
 
-def _get_date_csv_format():
+def _get_email_subject_date():
     today = date.today()
-    month = str(today.month).zfill(2)
+    month = today.strftime('%B')
     day = str(today.day).zfill(2)
     year = int(today.year)
-    return f"{month}{day}{year}"
+    return f"{month} {day}, {year}"
 
 
 def _get_date_file_posting_format():
