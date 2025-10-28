@@ -144,7 +144,7 @@ def get_abbreviated_month_and_year():
     return short_month_name, two_digit_year
 
 
-def send_email(df_posted:pd.DataFrame, file_name: str):
+def send_email(df_posted:Dict[str, pd.DataFrame], file_name: str):
     path_obj = Path(file_name)
     html_table = ""
     df_string_body = ""
@@ -161,6 +161,7 @@ def send_email(df_posted:pd.DataFrame, file_name: str):
                 <body>
                 <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
                 <p>No records were submitted to the GL today.</p>
+                <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
                 </body>
             </html>
         """        
