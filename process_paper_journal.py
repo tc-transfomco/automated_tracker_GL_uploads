@@ -2,7 +2,7 @@ import math
 import os
 import shutil
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List
 import warnings
 
 import pandas as pd
@@ -144,41 +144,61 @@ def get_abbreviated_month_and_year():
     return short_month_name, two_digit_year
 
 
-def send_email(df_posted:Dict[str, pd.DataFrame], file_name: str):
-    path_obj = Path(file_name)
-    html_table = ""
+def send_email(dfs_posted:List[Dict[str, pd.DataFrame]], file_names: List[str]):
     df_string_body = ""
     subject = f"{_get_email_subject_date()} Auto Upload"
-    for key in df_posted.keys():
-        if not df_posted[key].empty:
-            html_table += f"<h3>{key}</h3>\n{df_posted[key].to_html(index=False, escape=True)}\n"
-            df_string_body += f"***{key}***\n"
-            df_string_body += df_posted[key].to_string()
-    if len(html_table) == 0:
-        subject = f"{_get_email_subject_date()} No Files Uploaded"
-        html_body = f"""
+    html_body = """"""
+    html_start = """
             <html>
                 <body>
-                <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
-                <p>No records were submitted to the GL today.</p>
-                <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
+    """
+    html_end = f"""
+
+                    <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
                 </body>
             </html>
-        """        
+    """
+    for df_posted, file_name in zip(dfs_posted, file_names):
+        path_obj = Path(file_name)
         df_string_body += f"Using '{path_obj.name}' In '{path_obj.parent.name}'"
-        df_string_body += "No records were submitted to the GL today."
-    else:
-        html_body = f"""
-            <html>
-                <body>
-                <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
-                <p>The following items have been submitted to the general ledger:</p>
-                {html_table}
-                <p><small><em>This is an automated email. Contact {os.getenv('email')} with any questions.</em></small></p>
-                </body>
-            </html>
-        """
-    MailUtil().send(subject, df_string_body, html_body)
+        html_table = ""
+        for key in df_posted.keys():
+            if not df_posted[key].empty:
+                html_table += f"<h3>{key}</h3>\n{df_posted[key].to_html(index=False, escape=True)}\n"
+                df_string_body += f"***{key}***\n"
+                df_string_body += df_posted[key].to_string()
+    
+        if len(html_table) == 0:
+            df_string_body += "No records were submitted to the GL today.\n\n"
+        else:    
+            html_body += f"""
+                    <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
+                    <p>The following items have been submitted to the general ledger:</p>
+                    {html_table}
+
+
+            """
+    if not html_body:
+        subject = f"{_get_email_subject_date()} No Files Uploaded"
+        if not file_names:
+            html_body += f"""  
+                <h3>Could not find any Checks Cut files for processing.</h3>
+                <p>No records were submitted to the GL today.</p>
+            """
+            df_string_body = f"Could not find any Checks Cut files for processing.\n"
+            df_string_body += "No records were submitted to the GL today.\n"
+        else:
+            path_obj = Path(file_names[0])
+            html_body += f"""
+                    <h3>Using '{path_obj.name}' In '{path_obj.parent.name}'</h3>
+                    <p>No records were submitted to the GL today.</p>
+            """        
+            
+            df_string_body = f"Using '{path_obj.name}' In '{path_obj.parent.name}'\n"
+            df_string_body += "No records were submitted to the GL today.\n"
+    df_string_body += f"This is an automated email. Contact {os.getenv('email')} with any questions."
+    all_html = html_start + html_body + html_end
+    MailUtil().send(subject, df_string_body, all_html)
 
 
 
@@ -186,7 +206,7 @@ def get_journals_required_but_not_done(dataframe):
     def journal_required_and_not_done(row):
         journal_required = str(row[JOURNAL_REQUIRED_HEADER]).lower().strip()
         journal_done = str(row[JOURNAL_DONE_HEADER]).lower().strip()
-        if not ((journal_required == 'yes') and (journal_done == 'no')):
+        if not ( (journal_required == 'yes') and (journal_done == 'no') ):
             return False
         
         # from this point on, the journal is required and not done. 
@@ -257,13 +277,14 @@ def find_bad_gl_accounts(df, valid_gl_accounts):
     return exists_mask, not_exists_mask
 
 
-def get_dataframes_from_journal(save=True):
+def get_dataframes_from_journal(which_month:int):
     try:
-        file_name, fiscal_month, fiscal_year = _get_latest_excel_spreadsheet()
+        file_name, fiscal_month, fiscal_year = _get_excel_sheet_if_exists_at_month(which_month)
         print(file_name)
-    except NoSuchFolderException:
+    except NoSuchFolderException as e:
         print("Couldn't access the P drive!, or there were no folders for the current fiscal month!")
-        file_name = "data/inp_file.xlsx"
+        raise e
+        # file_name = "data/inp_file.xlsx"
 
     # IMPORTANT!!! MAKE A COPY OF THE FILEEEE BEFORE YOU START MESSING WITH IT
     directory = Path(file_name).parent
@@ -275,9 +296,10 @@ def get_dataframes_from_journal(save=True):
     
     filtered = {}
     masks = {}
-
+    del_keys = []
     for key in dfs.keys():
         if key not in [STEVEN_WARD, HOFFMAN, HOME_SERVICES, ONLINE_CHECKS]:
+            del_keys.append(key)
             continue
         
         dfs[key][JOURNAL_DONE_HEADER] = dfs[key][JOURNAL_DONE_HEADER].fillna('')
@@ -285,11 +307,16 @@ def get_dataframes_from_journal(save=True):
 
         filtered[key], masks[key] = get_journals_required_but_not_done(dfs[key])
         filtered[key] = filtered[key].fillna('')
+        if dfs[key].empty:
+            del_keys.append(key)
 
-    if save:
-        save_automated_check_journal_entries(filtered, fiscal_month, fiscal_year)
+    for key in del_keys:
+        del dfs[key]
     
-    re_issue = dfs[RE_ISSUE]
+    re_issue = dfs[RE_ISSUE] if RE_ISSUE in dfs else None
+    # if save:
+    #     save_automated_check_journal_entries(filtered, fiscal_month, fiscal_year)
+    
 
     return dfs, file_name, filtered, masks, re_issue, fiscal_month, fiscal_year
 
@@ -312,50 +339,52 @@ def replace_cost_centers(dict_of_dfs, valid_cost_centers, replacements):
     return dict_of_dfs
 
 
-def process_checks_cut(cost_center_replacements, do_transfer):
+def process_checks_cut(cost_center_replacements, dfs, file_name, filtered, masks, re_issue):
 
-    dfs, file_name, filtered, masks, re_issue, fiscal_month, fiscal_year = get_dataframes_from_journal(save=True)
+    # dfs, file_name, filtered, masks, re_issue, fiscal_month, fiscal_year = get_dataframes_from_journal(save=True)
 
     # End of step 4
     # Step 6
+    re_issue_to_add_to_final_csv = None
+    if re_issue is not None:
+        re_issue[CHECK_NUMBER] = re_issue[CHECK_NUMBER].astype('Int64').astype(str)
+        re_issue[MEMO] = re_issue[MEMO].astype(str)
 
-    re_issue[CHECK_NUMBER] = re_issue[CHECK_NUMBER].astype('Int64').astype(str)
-    re_issue[MEMO] = re_issue[MEMO].astype(str)
+        def update_journal_required_value(row):
+            if row[MEMO][:2] == "14":
+                return JOURNAL_REQUIRED_STR_14
+            if row[CHECK_NUMBER][:2] == row[MEMO][:2]:
+                return "Yes"
+            replace_str = "Yes"
+            if row[MEMO][:2] == "13" or row[MEMO][:2] == "15":
+                replace_str = JOURNAL_REQUIRED_STR_13_15
+            elif row[MEMO][:2] == "16" or row[MEMO][:2] == "61" or row[MEMO][:2] == "65":
+                replace_str = JOURNAL_REQUIRED_STR_16_61_65
 
-    def update_journal_required_value(row):
-        if row[MEMO][:2] == "14":
-            return JOURNAL_REQUIRED_STR_14
-        if row[CHECK_NUMBER][:2] == row[MEMO][:2]:
-            return "Yes"
-        replace_str = "Yes"
-        if row[MEMO][:2] == "13" or row[MEMO][:2] == "15":
-            replace_str = JOURNAL_REQUIRED_STR_13_15
-        elif row[MEMO][:2] == "16" or row[MEMO][:2] == "61" or row[MEMO][:2] == "65":
-            replace_str = JOURNAL_REQUIRED_STR_16_61_65
+            return replace_str
 
-        return replace_str
-
-    updated = re_issue.apply(update_journal_required_value, axis=1)
-    if not updated.empty:
-        re_issue[JOURNAL_REQUIRED_HEADER] = updated
-    for key in dfs.keys():
-        if "issue" in key.lower():
-            dfs[key] = re_issue
-            break
-    # save_tracker(dfs, name=file_name)
-    # Time to get the files that do need a journal update. We'll gather them here, and use them later.
-    def journal_required_mask(row):
-        if not row[JOURNAL_DONE_HEADER] == math.nan:
-            return False
-        if row[MEMO][:2] == "14":
-            return False
-        if row[CHECK_NUMBER][:2] == row[MEMO][:2]:
-            return False
-
-        return True
-    masks[RE_ISSUE] = re_issue.apply(journal_required_mask, axis=1)
+        updated = re_issue.apply(update_journal_required_value, axis=1)
+        if not updated.empty:
+            re_issue[JOURNAL_REQUIRED_HEADER] = updated
     
-    re_issue_to_add_to_final_csv = re_issue[masks[RE_ISSUE]]
+        for key in dfs.keys():
+            if "issue" in key.lower():
+                dfs[key] = re_issue
+                break
+        # save_tracker(dfs, name=file_name)
+        # Time to get the files that do need a journal update. We'll gather them here, and use them later.
+        def journal_required_mask(row):
+            if not row[JOURNAL_DONE_HEADER] == math.nan:
+                return False
+            if row[MEMO][:2] == "14":
+                return False
+            if row[CHECK_NUMBER][:2] == row[MEMO][:2]:
+                return False
+
+            return True
+        masks[RE_ISSUE] = re_issue.apply(journal_required_mask, axis=1)
+        
+        re_issue_to_add_to_final_csv = re_issue[masks[RE_ISSUE]]
 
     # Step 9 Done.
 
@@ -429,9 +458,10 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         if not filtered[key].empty:
             filtered[key].insert(loc=0, column=CHECK_NUMBER_AND_MEMO, value=check_number_and_name)
     
-    check_number_and_name = re_issue_to_add_to_final_csv.apply(construct_check_number_and_name, axis=1)
-    if not re_issue_to_add_to_final_csv.empty:
-        re_issue_to_add_to_final_csv.insert(loc=0, column=CHECK_NUMBER_AND_MEMO, value=check_number_and_name)
+    if re_issue_to_add_to_final_csv is not None:
+        check_number_and_name = re_issue_to_add_to_final_csv.apply(construct_check_number_and_name, axis=1)
+        if not re_issue_to_add_to_final_csv.empty:
+            re_issue_to_add_to_final_csv.insert(loc=0, column=CHECK_NUMBER_AND_MEMO, value=check_number_and_name)
 
     # data_to_export = pd.DataFrame()
     # what we want: from HOMESERVICES, STEVEN WARD and HOFFMAN  ===> GL Unit    (column x)   IN   "Cost Center"
@@ -451,13 +481,14 @@ def process_checks_cut(cost_center_replacements, do_transfer):
         if not filtered[key].empty:
             export_dataframes.append(filtered[key][columns_to_keep])
             export_dataframes_dict[key] = filtered[key][columns_to_keep]
-    if not re_issue_to_add_to_final_csv.empty:
+    if re_issue_to_add_to_final_csv is not None and not re_issue_to_add_to_final_csv.empty:
         export_dataframes.append(re_issue_to_add_to_final_csv[columns_to_keep])
         export_dataframes_dict["RE-ISSUE"] = re_issue_to_add_to_final_csv[columns_to_keep]
     if not export_dataframes:
         print("No Data to export for today!")
-        send_email({}, file_name)
-        exit(0)
+        # TODO: instead of sending the email here... perhaps we just return an empty dict and file name? 
+        # send_email({}, file_name)
+        return {}
     data_to_export = pd.concat(export_dataframes)
 
     csv_header_conversions = {GL_UNIT_HEADER: CSV_HEADERS[0],
@@ -499,13 +530,9 @@ def process_checks_cut(cost_center_replacements, do_transfer):
     print("DONE!")
 
     do_prod_stuff(dfs, masks, file_name, fixed_lines)
+    return export_dataframes_dict
     send_email(export_dataframes_dict, file_name)
     # os.remove(Path(file_name).parent / "Temp_Copy.xlsx")
-    # TODO: put the csv into netsuite!
-
-    # TODO: get some sort of response, hopefully a succesful response!
-    #
-    # TODO: Update the tracker with what you did!  So that the next day you don't do the same work!
 
 
 def do_prod_stuff(dataframe, where_to_update, name, output_lines):
@@ -658,13 +685,17 @@ def _get_year():
     return int(date.today().year)
 
 
-def _get_latest_excel_spreadsheet():
+def _get_excel_sheet_if_exists_at_month(which_month: int):
     print("Getting latest spreadsheet...")
     # range over the values 1, 0, -1. This will check next month first, then the current and finally the previous month. 
-    for i in range(1, -2, -1):
-        exists, dir, month, year = check_month_exists_in_p_drive(offset=i)
-        if exists:
-            return get_checks_cut_path(os.path.join(P_DRIVE, dir)), month, year
+
+    # exists, dir, month, year = check_month_exists_in_p_drive(offset=-1)
+    # if exists:
+    #     return get_checks_cut_path(os.path.join(P_DRIVE, dir)), month, year
+    
+    exists, dir, month, year = check_month_exists_in_p_drive(offset=which_month)
+    if exists:
+        return get_checks_cut_path(os.path.join(P_DRIVE, dir)), month, year
 
     raise NoSuchFolderException("Can not find a proper file for this month!")
 
@@ -713,7 +744,6 @@ def get_checks_cut_path(base_dir):
         # TODO: If I can't find one throw an error send an email
         # TODO: if Checks Cut SEP 2025 - Copy.xlsx exists ---> Throw an error, send an email. 
         # Right now, I'll just send a teams message until I figure out the email stuff. 
-        # TODO: constrcut email list. 
 
         if "checks" in dir_lowered and "cut" in dir_lowered and ".xlsx" in dir_lowered:
             good_files.append(os.path.join(base_dir, dir))
@@ -744,9 +774,23 @@ def main():
      
     raw_dict: Dict[str, int] = config.get("cost_center_replacements", {})  
     cost_center_replacements: Dict[int, int] = {int(k): v for k, v in raw_dict.items()}
-     
-    do_transfer = False         # set to false if testing. 
-    process_checks_cut(cost_center_replacements, do_transfer)
+
+    all_frames = []
+    all_files = []
+
+    for i in range(1, -2, -1):
+        try:
+            dfs, file_name, filtered, masks, re_issue, _, _ = get_dataframes_from_journal(i)
+        except:
+            continue
+
+        export_frames = process_checks_cut(cost_center_replacements, dfs, file_name, filtered, masks, re_issue,)
+
+        if export_frames or not all_files:          # if not all files, this is the latest file. We should use it if there are no export frames. 
+            all_frames.append(export_frames)
+            all_files.append(file_name)
+    
+    send_email(all_frames, all_files)
 
 
 if __name__ == "__main__":
