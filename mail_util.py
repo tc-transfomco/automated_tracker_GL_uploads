@@ -34,7 +34,7 @@ load_dotenv()
 
 
 class MailUtil:
-    def __init__(self):
+    def __init__(self, to_list="to_list"):
         # 1. Spin up Outlook and get your namespace
         self.olApp = win32.Dispatch("Outlook.Application")
         olNS  = self.olApp.GetNamespace("MAPI")
@@ -49,7 +49,7 @@ class MailUtil:
         if self.account is None:
             raise RuntimeError("Couldn’t find your account in Outlook.Session.Accounts")
         
-        self.to_list = os.getenv("to_list").split(',')
+        self.to_list = os.getenv(to_list).split(',')
     
     def send(self, subject:str, text_body:str, html_body:str = None):
         if len(self.to_list) == 0:
